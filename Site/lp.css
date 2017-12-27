@@ -1,0 +1,37 @@
+body {
+ background-color: #9A9B9D;  /* Pantone Cool Grey 7 C */
+ font-size: 100%;
+ margin: 0;
+ padding: 0;
+ font-family: Arial, Helvetica, sans-serif;
+}
+
+#lpmenu {
+	height: 40px;
+	font-size: 25px;
+	border-bottom: thin solid black;
+}
+
+#lpmenu a{
+	text-decoration: none;
+	color: #DADBDD;
+}
+#lpmenu a:hover{
+	text-decoration: none;
+	color: #5A5B5D;
+}
+
+#BookReader {
+	top: 40px;
+}
+
+.booklist {
+	padding: 10px;
+}
+
+.booklist a {
+	color: #DADBDD;
+}
+.booklist a:hover {
+	color: #5A5B5D;
+}
