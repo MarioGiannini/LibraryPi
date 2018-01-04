@@ -35,3 +35,12 @@ body {
 .booklist a:hover {
 	color: #5A5B5D;
 }
+#lpmenu  form{
+	height: 40px;
+	font-size: 11pt;
+	border-bottom: thin solid black;
+}
+.err{
+	color:red;
+	background-color: white;
+}

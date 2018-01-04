@@ -9,10 +9,25 @@ class LP
 	var $PageCount = 0;
 	var $BookKey = "";
 	var $Err = "";
+	var $UserID = 0;
+	var $UserErr = "";
 	
 	// Output consistent web page top
 	function HTMLPageTop( $Title = "LibraryPi", $Header="", $Script="" )
 	{
+		$this->UserProcess();
+		if( $this->UserID == 0 )
+			$Upload = "";
+		else
+		{
+			$Upload = "&nbsp;&nbsp;<a href=upload.php>Upload</a>";
+			$Act = isset( $_GET["act"] ) ? $_GET["act"] : "";
+			if( $Act == "del" )
+			{
+				$UKey = isset( $_GET["bk"] ) ? $_GET["bk"] : "";
+				$this->DeleteBook( $UKey );
+			}
+		}
 		echo "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n".
 			 "<html lang=\"en\">\n" .
 			 "<head>\n" .
@@ -22,7 +37,7 @@ class LP
 			 "</head>\n" .
 			 "<script>\n$Script\n</script>\n".
 			 "<body>\n" .
-			 "<div id=lpmenu><a href=index.php>Home</a>&nbsp;&nbsp;<a href=upload.php>Upload</a></div>";
+			 "<div id=lpmenu><a href=index.php>Home</a>$Upload<span style=\"float:right;\">" . $this->UserHTML() . "</span></div>";
 	}
 	// Output consistent web page bottom
 	function HTMLPageBottom( $Script = '' )
@@ -37,6 +52,7 @@ class LP
 	// Extracts files from zip file and add to database
 	function AddBook( $Title )
 	{
+		if( $this->UserID == 0 ) die( "Access denied" );
 		$UKey = $this->UKey();
 		$Title = isset( $_POST["book_title"] ) ? $_POST["book_title"] : "Untitled";
 
@@ -73,6 +89,48 @@ class LP
 		}
 		return true;
 	}
+	
+	function deleteDir($dirPath) {
+		if ( is_dir($dirPath)) {
+			if (substr($dirPath, strlen($dirPath) - 1, 1) != '/')
+				$dirPath .= '/';
+			$files = glob($dirPath . '*', GLOB_MARK);
+			foreach ($files as $file) {
+				if (is_dir($file))
+					$this->deleteDir($file);
+				else
+					unlink($file);
+			}
+			rmdir($dirPath);
+		}
+	}
+	
+	function DeleteBook( $UKey )
+	{
+		if( $this->UserID == 0 ) die( "Access denied" );
+		$UKey = str_replace( "'", "", $UKey );
+		$result = mysqli_query( db(), "select * from lp_book where ukey = '$UKey'" );
+		if ( $row = mysqli_fetch_array( $result ) )
+		{
+			$BookID = $row["id"];
+			mysqli_query( db(), "insert into lp_book_del select id, ukey from lp_book where id = $BookID" );
+			mysqli_query( db(), "delete from lp_book where id = $BookID" );
+		}
+		$result->close();
+	}
+	function PurgeBooks()
+	{
+		$result = mysqli_query( db(), "select * from lp_book_del" );
+		if ( $row = mysqli_fetch_array( $result ) )
+		{
+			$UKey = $row[ "ukey"];
+			$BookID = $row["id"];
+			$this->deleteDir( $_SERVER["DOCUMENT_ROOT"]."/uploads/$UKey/" );
+			mysqli_query( db(), "delete from lp_page_word where page_id in (select id from lp_page where book_id = $BookID)" );
+			mysqli_query( db(), "delete from lp_page where book_id = $BookID" );
+			mysqli_query( db(), "delete from lp_book_del where id = $BookID" );
+		}
+	}
 	// Returns list of books in database as links.
 	function BookList()
 	{
@@ -88,13 +146,17 @@ class LP
 			return( "Error: Can't read book data.  Did you create the SQL tables in the correct database?<br>" );
 		while ( $row = mysqli_fetch_array( $result ) )
 		{
+			if( $this->UserID == 0 )
+				$Del = "";
+			else
+				$Del = "&nbsp;<a href=# onclick=\"if( confirm( 'Are you sure you want to delete this?' ) ) window.location='index.php?act=del&bk=" . $row["ukey"] . "';\">[DELETE]<a>&nbsp;&nbsp;";
 			$Pages = $row["Pages"];
 			$ToDo = $row["ToDo"];
 			if( $ToDo == 0 )
 				$Det = "$Pages pages";
 			else
 				$Det = "$ToDo pages to process";
-			$Ret .= "<a href=\"reader.php?bk=" . $row["ukey"] . "\">".$row["title"] . " [$Det]</a><br />";
+			$Ret .= "$Del<a href=\"reader.php?bk=" . $row["ukey"] . "\">".$row["title"] . " [$Det]</a><br />";
 		}
 		$result->close();
 		if( strlen( $Ret ) == 0 )
@@ -274,7 +336,6 @@ class LP
 			" join lp_book b on b.id = lp_page.book_id " .
 			" where b.ukey = '$BookKey' " .
 			" order by lp_page.id, pw0seq";
-			//die( $Cmd );
 		$result = mysqli_query( db(), $Cmd);
 		while ( $row = mysqli_fetch_array( $result ) )
 		{
@@ -346,6 +407,85 @@ class LP
 		$Ret .= "] }\n";
 		echo $Ret;
 		exit();
-	}	
+	}
+
+	function UserHTML()
+	{
+		// Either Register, Login, or Welcome
+		$Ret = "";
+		if( $this->UserID > 0 ) // Must have just logged in
+			$Ret = "<form method=post><input type=hidden name=act value=logout> <input type=submit value=Logout></form>";
+
+		if( strlen( $Ret ) == 0 ) // If there are zero users, it's a register
+		{
+			$result = mysqli_query( db(), "select count(*) Cnt from lp_user");
+			if( $result === false )
+				return ( "Error: Can't read user data.  Did you create the SQL tables in the correct database?<br>" );
+			if ( $row = mysqli_fetch_array( $result ) )
+			{
+				if( $row["Cnt"] == 0 )
+					$Ret = "<form method=post>$this->UserErr Register: EMail: <input type=text name=email maxlength=254>"
+					." Password: <input type=password name=pass1 >  again: <input type=password name=pass2 >"
+					."<input type=hidden name=act value=register>"
+					."<input type=submit value=Register></form>";
+			}
+			$result->close();
+		}
+		if( strlen( $Ret ) == 0 )  // There are users, but notbody logged in, so login:
+					$Ret = "<form method=post>$this->UserErr EMail: <input type=text name=email maxlength=254>"
+					." Password: <input type=password name=pass1 >"
+					."<input type=hidden name=act value=login>"
+					."<input type=submit value=Login></form>";
+		return  $Ret;
+	}
+	
+	function UserProcess()
+	{
+		$Act = isset( $_POST["act"] ) ? $_POST["act"] : "";
+		$ConnKey = isset( $_COOKIE[ 'connkey' ] ) ? $_COOKIE[ 'connkey' ] : '';
+		if( $Act != "logout" && strlen( $ConnKey ) > 0 ) // Reconnect?
+		{
+			$result = mysqli_query( db(), "select * from lp_user where connection_key = '$ConnKey'");
+			if( $result === false )
+				die( "Error: Looks like user table is not setup" );
+			if ( $row = mysqli_fetch_array( $result ) )
+				$this->UserID = $row["id"];
+			$result->close();
+		}
+		if( $this->UserID > 0 )
+			return;
+		$EMail = str_replace( "'", "", isset( $_POST["email"] ) ? $_POST["email"] : "" );
+		$Pass1 = str_replace( "'", "", isset( $_POST["pass1"] ) ? $_POST["pass1"] : "" );
+		if( $Act == "register" )
+		{
+			$Pass2 = str_replace( "'", "", isset( $_POST["pass2"] ) ? $_POST["pass2"] : "" );
+			if( strcmp( $Pass1, $Pass2 ) != 0 || strlen( $Pass1 )==0 || strlen( $EMail) == 0 )
+				$this->UserErr = "<span class=err>Verify email & password</span>";
+			else{
+				mysqli_query( db(), "insert ignore into lp_user set id=1, email='$EMail', password='$Pass1'" ); // Only 1 user!
+				$Act = "login";
+			}
+		} 
+		if( $Act == "login" ) 
+		{
+			$result = mysqli_query( db(), "select * from  lp_user where email='$EMail' and password='$Pass1'" );
+			if ( $row = mysqli_fetch_array( $result ) )
+			{
+				$this->UserID = $row["id"];
+				$Key = $this->UKey();
+				setcookie( "connkey", $Key );
+				mysqli_query( db(), "update lp_user set connection_key = '$Key' where email='$EMail' and password='$Pass1'" );
+			}
+			else
+				$this->UserErr = "<span class=err>Invalid login</span>";
+			$result->close();			
+		}
+		else if( $Act == "logout" ) 
+		{
+			$this->UserID = 0;
+			setcookie( "connkey", null );
+			mysqli_query( db(), "update lp_user set connection_key = '' where key='$ConnKey'" );
+		}
+	}
 }
 ?>

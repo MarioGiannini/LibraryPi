@@ -5,6 +5,7 @@
 		$lp = new LP();
 		$lp->OCRFiles();
 		$lp->AddOCRRecords();
+		$lp->PurgeBooks();
 	} // end of function DoProcess() 
 	
     $fp = fopen( "uploads/file.flag","w");
