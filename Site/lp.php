@@ -11,6 +11,7 @@ class LP
 	var $Err = "";
 	var $UserID = 0;
 	var $UserErr = "";
+	var $Title = "";
 	
 	// Output consistent web page top
 	function HTMLPageTop( $Title = "LibraryPi", $Header="", $Script="" )
@@ -172,13 +173,14 @@ class LP
 		$this->PageWidths = "";
 		$this->PageCount = 0;
 		
-		$Cmd = "select p.id, p.width, p.height from lp_book b " .
+		$Cmd = "select b.title, p.id, p.width, p.height from lp_book b " .
 			" join lp_page p on p.book_id = b.id "  .
 			" where b.ukey ='$this->BookKey' order by p.seq";
 		$result = mysqli_query( db(), $Cmd);
 		$Sep = "";
 		while ( $row = mysqli_fetch_array( $result ) )
 		{
+			$this->Title = $row["title"];
 			$this->PageIDs .= $Sep . $row["id"];
 			$this->PageHeights .= $Sep . $row["height"];
 			$this->PageWidths .= $Sep . $row["width"];

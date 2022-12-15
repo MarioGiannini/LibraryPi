@@ -34,9 +34,9 @@
 		"		br.pageHeights = [$lp->PageHeights];\n".
 		"		br.BookKey = '$BookKey';\n" .
 		"		br.numLeafs = $lp->PageCount;\n".
-		"		br.bookTitle = \"Demo\";\n" .
-		"		br.bookUrl = \"Demo\";\n" .
-		"		br.logoURL = \"Demo\";\n" .
+		"		br.bookTitle = \"$lp->Title\";\n" .
+		"		br.bookUrl = \"http://www.librarypi.com/demo/reader.php?bk=$BookKey\";\n" .
+		"		br.logoURL = \"https://archive.org/\";\n" .
 		"		SetupBookReader( br );\n";
 ?>
     br.init();
