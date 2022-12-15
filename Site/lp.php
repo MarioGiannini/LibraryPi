@@ -54,7 +54,7 @@ class LP
 	{
 		if( $this->UserID == 0 ) die( "Access denied" );
 		$UKey = $this->UKey();
-		$Title = isset( $_POST["book_title"] ) ? $_POST["book_title"] : "Untitled";
+		$Title = isset( $_POST["book_title"] ) ? mysqli_real_escape_string( $_POST["book_title"] ) : "Untitled";
 
 		$DestPath = $_SERVER["DOCUMENT_ROOT"]."/uploads/$UKey/";
 		$zip = new ZipArchive;
@@ -108,7 +108,7 @@ class LP
 	function DeleteBook( $UKey )
 	{
 		if( $this->UserID == 0 ) die( "Access denied" );
-		$UKey = str_replace( "'", "", $UKey );
+		$UKey = preg_replace("/[^A-Za-z0-9 ]/", '', $UKey);
 		$result = mysqli_query( db(), "select * from lp_book where ukey = '$UKey'" );
 		if ( $row = mysqli_fetch_array( $result ) )
 		{
@@ -190,6 +190,8 @@ class LP
 	// Determines filename of page JPG file for a specific book page
 	function GetPageFilename( $BookKey, $PageID )
 	{
+		$BookKey = preg_replace("/[^A-Za-z0-9 ]/", '', $BookKey);
+		$PageID = intval( $PageID );
 		$Ret = "";
 		$Cmd = "select filename from lp_book b ".
 			" join lp_page p on p.book_id = b.id ".
@@ -243,6 +245,7 @@ class LP
 		$Word =  $this->ProcessWord( $Word );
 		if( strlen( $Word ) == 0 )
 			return 0;
+		$Word = mysqli_real_escape_string( $Word );
 		$result = mysqli_query( db(), "select * from lp_word w where w.word = '$Word' ");
 		if ( $row = mysqli_fetch_array( $result ) )
 			$Ret = $row["id"];
@@ -454,8 +457,8 @@ class LP
 		}
 		if( $this->UserID > 0 )
 			return;
-		$EMail = str_replace( "'", "", isset( $_POST["email"] ) ? $_POST["email"] : "" );
-		$Pass1 = str_replace( "'", "", isset( $_POST["pass1"] ) ? $_POST["pass1"] : "" );
+		$EMail = isset( $_POST["email"] ) ? mysqli_real_escape_string( $_POST["email"] ) : "" ;
+		$Pass1 = isset( $_POST["pass1"] ) ? mysqli_real_escape_string( $_POST["pass1"] ) : "" ;
 		if( $Act == "register" )
 		{
 			$Pass2 = str_replace( "'", "", isset( $_POST["pass2"] ) ? $_POST["pass2"] : "" );
